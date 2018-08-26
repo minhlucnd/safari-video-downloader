@@ -19,11 +19,12 @@ import config
 #     DOWNLOADER = './youtube-dl.exe' # Please download from https://github.com/rg3/youtube-dl
 
 class SafariDownloader:
-    def __init__(self, url, output_folder, username, password, domain='https://www.safaribooksonline.com', downloader_path='./youtube-dl.exe'):
+    def __init__(self, url, output_folder, username, password, vformat="mp4-1418", domain='https://www.safaribooksonline.com', downloader_path='./youtube-dl.exe'):
         self.output_folder = output_folder
         self.username = username
         self.password = password
         self.domain = domain
+        self.format= vformat
         self.downloader_path = downloader_path
 
         req = requests.get(url)
@@ -60,7 +61,11 @@ class SafariDownloader:
                     print("File {} already exists! Skipping...".format(video_out))
                     continue
                 print("Downloading {} ...".format(video_name))
-                subprocess.run([self.downloader_path, "-u", self.username, "-p", self.password, "--verbose", "--output", video_out, video_url])
+                try:
+                    subprocess.run([self.downloader_path, "-u", self.username, "-p", self.password, "--verbose", "-f", self.format, "--output", video_out, video_url], check=True)
+                except subprocess.CalledProcessError:
+                    print("Falling back to the best format available")
+                    subprocess.run([self.downloader_path, "-u", self.username, "-p", self.password, "--verbose", "--output", video_out, video_url])           
 
 if __name__ == '__main__':
     app_config = config.Config
