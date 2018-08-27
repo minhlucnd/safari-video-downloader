@@ -7,8 +7,10 @@ import os
 import subprocess
 import unicodedata
 import string
+import youtube_dl
 
 import config
+import re
 # Create a config.py file with the following content:
 # class Config:
 #     URL = 'https://www.safaribooksonline.com/library/view/strata-data-conference/9781491985373/'
@@ -17,19 +19,21 @@ import config
 #     USERNAME = 'your_email_address'
 #     PASSWORD = 'your_password'
 #     DOWNLOADER = './youtube-dl.exe' # Please download from https://github.com/rg3/youtube-dl
+import pdb
 
 class SafariDownloader:
-    def __init__(self, url, output_folder, username, password, vformat="mp4-1418", domain='https://www.safaribooksonline.com', downloader_path='./youtube-dl.exe'):
-        self.output_folder = output_folder
+    def __init__(self, url, output_folder, username, password, res="1280x720", domain='https://www.safaribooksonline.com', downloader_path='./youtube-dl.exe'):
+        
         self.username = username
         self.password = password
         self.domain = domain
-        self.format= vformat
+        self.res= res
         self.downloader_path = downloader_path
-
         req = requests.get(url)
         soup = BeautifulSoup(req.text, 'html.parser')
-        self.topics = soup.find_all('li', class_='toc-level-1') # top-level topic titles
+#        pdb.set_trace()
+        self.topics = soup.select('li.toc-level-1') # top-level topic titles
+        self.output_folder = os.path.join(output_folder, soup.select('h1.t-title')[0].get_text())
         # Update youtube-dl first
         subprocess.run([self.downloader_path, "-U"])
 
@@ -52,9 +56,11 @@ class SafariDownloader:
                 print("Skipping {}...".format(topic_name))
                 continue
             for index, video in enumerate(topic.ol.find_all('a')):
+
                 video_name = '{:03d} - {}'.format(index + 1, video.text)
                 video_name = self.validify(video_name)
-                video_url = self.domain + video.get('href')
+                #video_url = self.domain + video.get('href')
+                video_url = video.get('href')
                 video_out = '{}/{}.mp4'.format(save_folder, video_name)
                 # Check if file already exists
                 if os.path.isfile(video_out):
@@ -62,10 +68,12 @@ class SafariDownloader:
                     continue
                 print("Downloading {} ...".format(video_name))
                 try:
-                    subprocess.run([self.downloader_path, "-u", self.username, "-p", self.password, "--verbose", "-f", self.format, "--output", video_out, video_url], check=True)
-                except subprocess.CalledProcessError:
-                    print("Falling back to the best format available")
-                    subprocess.run([self.downloader_path, "-u", self.username, "-p", self.password, "--verbose", "--output", video_out, video_url])           
+                    output = subprocess.run([self.downloader_path, "-u", self.username, "-p", self.password, video_url, "-F"],stdout=subprocess.PIPE)       
+                    vformat = re.search("(mp4-[0-9]+).*"+self.res+".*\n",  output.stdout.decode("utf-8")).group(1)
+                    output = subprocess.run([self.downloader_path, "-u", self.username, "-p", self.password, "--verbose", "-f", vformat, "--output", video_out, video_url], check=True)                  
+                except subprocess.CalledProcessError as e:
+                    print("Falling back to best format available")
+                    subprocess.run([self.downloader_path, "-u", self.username, "-p", self.password, "--verbose", "--output", video_out, video_url])
 
 if __name__ == '__main__':
     app_config = config.Config
