@@ -55,8 +55,12 @@ class SafariDownloader:
             if topic_name in ('Keynotes', 'Strata Business Summit', 'Sponsored'):
                 print("Skipping {}...".format(topic_name))
                 continue
-            for index, video in enumerate(topic.ol.find_all('a')):
-
+            try:
+                video_list = topic.ol.find_all('a')
+            except AttributeError:
+                print("no links in ", topic)
+                continue
+            for index, video in enumerate(video_list):
                 video_name = '{:03d} - {}'.format(index + 1, video.text)
                 video_name = self.validify(video_name)
                 #video_url = self.domain + video.get('href')
@@ -71,7 +75,7 @@ class SafariDownloader:
                     output = subprocess.run([self.downloader_path, "-u", self.username, "-p", self.password, video_url, "-F"],stdout=subprocess.PIPE)       
                     vformat = re.search("(mp4-[0-9]+).*"+self.res+".*\n",  output.stdout.decode("utf-8")).group(1)
                     output = subprocess.run([self.downloader_path, "-u", self.username, "-p", self.password, "--verbose", "-f", vformat, "--output", video_out, video_url], check=True)                  
-                except subprocess.CalledProcessError as e:
+                except (subprocess.CalledProcessError, AttributeError):
                     print("Falling back to best format available")
                     subprocess.run([self.downloader_path, "-u", self.username, "-p", self.password, "--verbose", "--output", video_out, video_url])
 
