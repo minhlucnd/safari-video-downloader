@@ -8,7 +8,7 @@ import subprocess
 import unicodedata
 import string
 import youtube_dl
-
+from loguru import logger
 import config
 import re
 # Create a config.py file with the following content:
@@ -35,7 +35,7 @@ class SafariDownloader:
         self.topics = soup.select('li.toc-level-1') # top-level topic titles
         self.output_folder = os.path.join(output_folder, soup.select('h1.t-title')[0].get_text())
         # Update youtube-dl first
-        subprocess.run([self.downloader_path, "-U"])
+
 
     def validify(self, filename):
         valid_chars = "-_.() %s%s" % (string.ascii_letters, string.digits)
@@ -53,12 +53,12 @@ class SafariDownloader:
             os.makedirs(save_folder, exist_ok=True)
             # You can choose to skip these topic_name, comment these three lines if you do not want to skip any
             if topic_name in ('Keynotes', 'Strata Business Summit', 'Sponsored'):
-                print("Skipping {}...".format(topic_name))
+                logger.info("Skipping {}...".format(topic_name))
                 continue
             try:
                 video_list = topic.ol.find_all('a')
             except AttributeError:
-                print("no links in ", topic)
+                logger.info("no links in ", topic)
                 continue
             for index, video in enumerate(video_list):
                 video_name = '{:03d} - {}'.format(index + 1, video.text)
@@ -68,15 +68,15 @@ class SafariDownloader:
                 video_out = '{}/{}.mp4'.format(save_folder, video_name)
                 # Check if file already exists
                 if os.path.isfile(video_out):
-                    print("File {} already exists! Skipping...".format(video_out))
+                    logger.info("File {} already exists! Skipping...".format(video_out))
                     continue
-                print("Downloading {} ...".format(video_name))
+                logger.info("Downloading {} ...".format(video_name))
                 try:
                     output = subprocess.run([self.downloader_path, "-u", self.username, "-p", self.password, video_url, "-F"],stdout=subprocess.PIPE)       
                     vformat = re.search("(mp4-[0-9]+).*"+self.res+".*\n",  output.stdout.decode("utf-8")).group(1)
                     output = subprocess.run([self.downloader_path, "-u", self.username, "-p", self.password, "--verbose", "-f", vformat, "--output", video_out, video_url], check=True)                  
                 except (subprocess.CalledProcessError, AttributeError):
-                    print("Falling back to best format available")
+                    logger.info("Falling back to best format available")
                     subprocess.run([self.downloader_path, "-u", self.username, "-p", self.password, "--verbose", "--output", video_out, video_url])
 
 if __name__ == '__main__':
